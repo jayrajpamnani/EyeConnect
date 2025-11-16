@@ -22,7 +22,6 @@ export class SignalingService {
   private roomId: string;
   private userId: string;
   private userRole: 'helper' | 'volunteer';
-  private knownPeers: Set<string> = new Set();
   
   // Callbacks
   public onOffer?: (offer: RTCSessionDescriptionInit, from: string) => void;
@@ -67,14 +66,9 @@ export class SignalingService {
     });
 
     this.channel.on('presence', { event: 'leave' }, ({ key }) => {
-      console.log('👋 User left:', key);
-      if (key !== this.userId) {
-        // Remove from known peers so they can rejoin later
-        this.knownPeers.delete(key);
-        console.log('🗑️ Removed from known peers. Remaining:', this.knownPeers.size);
-        if (this.onUserLeft) {
-          this.onUserLeft(key);
-        }
+      console.log('User left:', key);
+      if (key !== this.userId && this.onUserLeft) {
+        this.onUserLeft(key);
       }
     });
 
@@ -113,16 +107,7 @@ export class SignalingService {
   }
 
   private notifyUserJoined(userId: string) {
-    // CRITICAL: Prevent duplicate callbacks for the same peer
-    if (this.knownPeers.has(userId)) {
-      console.log('⚠️ User already known, skipping duplicate callback:', userId);
-      return;
-    }
-    
-    this.knownPeers.add(userId);
-    console.log('👤 NEW user detected in room:', userId, 'Total known peers:', this.knownPeers.size);
-    console.log('🎯 Callback registered:', !!this.onUserJoined);
-    
+    console.log('👤 Detected user in room:', userId, 'Callback registered:', !!this.onUserJoined);
     if (this.onUserJoined) {
       console.log('🚀 Calling onUserJoined callback for:', userId);
       this.onUserJoined(userId);
@@ -233,9 +218,6 @@ export class SignalingService {
       await this.channel.unsubscribe();
       this.channel = null;
     }
-    // Clear known peers for clean state
-    this.knownPeers.clear();
-    console.log('🧹 Cleaned up signaling service');
   }
 
   /**
