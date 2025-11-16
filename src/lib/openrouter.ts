@@ -41,7 +41,7 @@ export async function analyzeImage(request: VisionAnalysisRequest): Promise<Visi
         'X-Title': 'EyeConnect',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4-vision-preview', // GPT-4 Vision model via OpenRouter
+        model: 'openai/gpt-4o', // GPT-4o with vision capabilities (newer, faster, cheaper)
         messages: [
           {
             role: 'user',
