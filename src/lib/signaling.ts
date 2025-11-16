@@ -103,12 +103,18 @@ export class SignalingService {
   }
 
   private notifyUserJoined(userId: string) {
-    if (this.knownPeers.has(userId)) return;
+    if (this.knownPeers.has(userId)) {
+      console.log('⚠️ User already known:', userId);
+      return;
+    }
     this.knownPeers.add(userId);
 
+    console.log('👤 Detected user in room:', userId, 'Callback registered:', !!this.onUserJoined);
     if (this.onUserJoined) {
-      console.log('Detected user in room:', userId);
+      console.log('🚀 Calling onUserJoined callback for:', userId);
       this.onUserJoined(userId);
+    } else {
+      console.error('❌ No onUserJoined callback registered!');
     }
   }
 

@@ -96,24 +96,34 @@ const VideoCall = () => {
 
         // Set up signaling event handlers
         signalingService.onOffer = async (offer) => {
-          console.log("Received offer, creating answer");
+          console.log("📥 Received offer from peer, creating answer");
           
           // Create peer connection if not already created
           if (!webrtcService.getLocalStream()) {
-            console.error('Local stream not ready');
+            console.error('❌ Local stream not ready');
             return;
           }
           
-          webrtcService.createPeerConnection();
-          const answer = await webrtcService.createAnswer(offer);
-          await signalingService.sendAnswer(answer);
-          console.log('Answer sent');
+          try {
+            webrtcService.createPeerConnection();
+            console.log("✅ Peer connection created for answer");
+            const answer = await webrtcService.createAnswer(offer);
+            console.log("✅ Answer created:", answer);
+            await signalingService.sendAnswer(answer);
+            console.log('✅ Answer sent successfully');
+          } catch (error) {
+            console.error('❌ Error handling offer:', error);
+          }
         };
 
         signalingService.onAnswer = async (answer) => {
-          console.log("Received answer, setting remote description");
-          await webrtcService.setRemoteAnswer(answer);
-          console.log('Remote answer set successfully');
+          console.log("📥 Received answer from peer, setting remote description");
+          try {
+            await webrtcService.setRemoteAnswer(answer);
+            console.log('✅ Remote answer set successfully');
+          } catch (error) {
+            console.error('❌ Error setting remote answer:', error);
+          }
         };
 
         signalingService.onIceCandidate = async (candidate) => {
@@ -122,24 +132,35 @@ const VideoCall = () => {
         };
 
         signalingService.onUserJoined = async (joinedUserId) => {
-          console.log("User joined:", joinedUserId, "My role:", role);
+          console.log("🎯 onUserJoined callback fired!", {
+            joinedUserId,
+            myRole: role,
+            myUserId: userId,
+            willInitiateOffer: role === "volunteer"
+          });
           
           // Wait a moment to ensure both peers are ready
           await new Promise(resolve => setTimeout(resolve, 500));
           
           // The volunteer (who accepted the call) initiates the offer
           if (role === "volunteer") {
-            console.log("I'm the volunteer, creating peer connection and sending offer");
-            webrtcService.createPeerConnection();
-            
-            // Small delay to ensure peer connection is fully set up
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-            const offer = await webrtcService.createOffer();
-            console.log('Offer created, sending to helper');
-            await signalingService.sendOffer(offer);
+            try {
+              console.log("✅ I'm the volunteer, creating peer connection and sending offer");
+              webrtcService.createPeerConnection();
+              console.log("✅ Peer connection created");
+              
+              // Small delay to ensure peer connection is fully set up
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
+              const offer = await webrtcService.createOffer();
+              console.log('✅ Offer created:', offer);
+              await signalingService.sendOffer(offer);
+              console.log('✅ Offer sent successfully');
+            } catch (error) {
+              console.error("❌ Error creating/sending offer:", error);
+            }
           } else {
-            console.log("I'm the helper, waiting for offer from volunteer");
+            console.log("⏳ I'm the helper, waiting for offer from volunteer");
           }
         };
 
