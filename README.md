@@ -42,6 +42,16 @@ npm run dev
 
 Without the database setup, calls will show "connecting" infinitely and won't match across devices.
 
+### AI Visual Assistance Setup (Optional)
+
+When no volunteers are available within 10 seconds, users are redirected to AI-powered visual assistance using OpenRouter.
+
+1. **OpenRouter Setup** (Optional) - See **[OPENROUTER_SETUP.md](./OPENROUTER_SETUP.md)** to enable AI vision
+2. Get API key from [OpenRouter.ai](https://openrouter.ai)
+3. Add `VITE_OPENROUTER_API_KEY` to your `.env` file
+
+The app works without AI - it's only a fallback for when volunteers aren't available.
+
 ## Technologies Used
 
 This project is built with:
@@ -53,6 +63,7 @@ This project is built with:
 - Tailwind CSS
 - Supabase (Realtime for signaling)
 - WebRTC (Peer-to-peer video calls)
+- OpenRouter API (AI vision assistance)
 
 ## Available Scripts
 

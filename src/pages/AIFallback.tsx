@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { analyzeImage, canvasToBase64, isOpenRouterConfigured } from "@/lib/openrouter";
 
 const AIFallback = () => {
   const navigate = useNavigate();
@@ -43,32 +44,70 @@ const AIFallback = () => {
 
   const analyzeFrame = async () => {
     setIsAnalyzing(true);
+    setResult(""); // Clear previous result
     
-    // Capture frame from video
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx?.drawImage(video, 0, 0);
-      
-      // In production, this would call OpenAI Vision API
-      // For now, simulate AI response
-      setTimeout(() => {
-        const mockResponse = "I can see a room with a door on the left and a window straight ahead. There's a table with some objects on it in the center of the view.";
-        setResult(mockResponse);
+    try {
+      // Check if API is configured
+      if (!isOpenRouterConfigured()) {
+        throw new Error('OpenRouter API key not configured. Please add VITE_OPENROUTER_API_KEY to your .env file.');
+      }
+
+      // Capture frame from video
+      if (videoRef.current && canvasRef.current) {
+        const canvas = canvasRef.current;
+        const video = videoRef.current;
+        
+        // Set canvas size to match video
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        // Draw current video frame to canvas
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          throw new Error('Failed to get canvas context');
+        }
+        ctx.drawImage(video, 0, 0);
+        
+        // Convert canvas to base64
+        const imageBase64 = canvasToBase64(canvas, 0.8);
+        
+        // Analyze image using OpenRouter API
+        const response = await analyzeImage({
+          imageBase64,
+          prompt: "You are helping a blind person understand their surroundings. " +
+                  "Describe this image clearly and concisely. Focus on objects, their locations, " +
+                  "any text visible, colors, and potential hazards. Be specific about spatial relationships " +
+                  "(left, right, center, near, far). Keep it under 3 sentences but informative."
+        });
+        
+        setResult(response.description);
         setIsAnalyzing(false);
         
         // Read result aloud
-        const speech = new SpeechSynthesisUtterance(mockResponse);
+        const speech = new SpeechSynthesisUtterance(response.description);
+        speech.rate = 0.9; // Slightly slower for clarity
         window.speechSynthesis.speak(speech);
         
         toast({
           title: "Analysis complete",
           description: "The description has been read aloud",
         });
-      }, 2000);
+      }
+    } catch (error) {
+      console.error('Error analyzing image:', error);
+      setIsAnalyzing(false);
+      
+      const errorMessage = error instanceof Error ? error.message : 'Failed to analyze image';
+      
+      toast({
+        title: "Analysis failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+      
+      // Read error aloud
+      const speech = new SpeechSynthesisUtterance("Sorry, I couldn't analyze the image. " + errorMessage);
+      window.speechSynthesis.speak(speech);
     }
   };
 
@@ -90,6 +129,13 @@ const AIFallback = () => {
           <CardDescription className="text-2xl">
             Point your camera and tap to hear what's in view
           </CardDescription>
+          {!isOpenRouterConfigured() && (
+            <div className="mt-4 rounded-lg bg-yellow-100 dark:bg-yellow-900/20 p-4 border border-yellow-300 dark:border-yellow-700">
+              <p className="text-lg text-yellow-800 dark:text-yellow-200">
+                ⚠️ OpenRouter API not configured. Add VITE_OPENROUTER_API_KEY to your .env file.
+              </p>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-8">
           {/* Camera preview */}
