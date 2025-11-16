@@ -36,48 +36,7 @@ const HelpRequest = () => {
     const helperId = `helper_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
     try {
-      /* ---------------------------------------------------------
-       * 1. Subscribe BEFORE we create the row to avoid race-condition
-       * --------------------------------------------------------- */
-      const channel = supabase
-        .channel(`call:${roomId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'calls',
-            filter: `room_id=eq.${roomId}`,
-          },
-          (payload) => {
-            const updatedCall = payload.new as any;
-            if (updatedCall.status === 'accepted') {
-              // Cleanup listener
-              channel.unsubscribe();
-
-              toast({
-                title: 'Volunteer found!',
-                description: 'Connecting to video call...',
-              });
-
-              navigate(`/video-call?room=${updatedCall.room_id}&role=helper`);
-            }
-          }
-        );
-
-      // Wait for subscription to be ready
-      await new Promise<void>((resolve) => {
-        channel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') resolve();
-        });
-      });
-
-      /* ---------------------------------------------------------
-       * 2. Insert row AFTER listener is active
-       * --------------------------------------------------------- */
-      // Using any cast to bypass missing generated types
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore
+      // Insert the call request into database
       const { error } = await (supabase as any)
         .from('calls')
         .insert({
@@ -90,21 +49,44 @@ const HelpRequest = () => {
         console.error('Error creating call:', error);
         toast({
           title: 'Connection error',
-          description:
-            'Failed to create call request. Please check your Supabase configuration.',
+          description: 'Failed to create call request. Please check your Supabase configuration.',
           variant: 'destructive',
         });
         setIsSearching(false);
-        channel.unsubscribe();
         return;
       }
+
+      // Listen for when a volunteer accepts
+      const channel = supabase
+        .channel(`call-updates-${roomId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'calls',
+            filter: `room_id=eq.${roomId}`,
+          },
+          (payload) => {
+            const updatedCall = payload.new as any;
+            if (updatedCall.status === 'accepted') {
+              channel.unsubscribe();
+              toast({
+                title: 'Volunteer found!',
+                description: 'Connecting to video call...',
+              });
+              navigate(`/video-call?room=${updatedCall.room_id}&role=helper`);
+            }
+          }
+        )
+        .subscribe();
 
       toast({
         title: 'Searching for volunteers',
         description: 'Please wait while we connect you...',
       });
 
-      // Store channel globally for cleanup
+      // Store channel for cleanup
       (window as any).__callChannel = channel;
     } catch (error) {
       console.error('Error starting request:', error);

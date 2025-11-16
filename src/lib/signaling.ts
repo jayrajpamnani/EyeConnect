@@ -22,7 +22,6 @@ export class SignalingService {
   private roomId: string;
   private userId: string;
   private userRole: 'helper' | 'volunteer';
-  private knownPeers: Set<string> = new Set();
   
   // Callbacks
   public onOffer?: (offer: RTCSessionDescriptionInit, from: string) => void;
@@ -58,28 +57,33 @@ export class SignalingService {
 
     // Track presence (who's in the room)
     this.channel.on('presence', { event: 'join' }, ({ key }) => {
-      console.log('User joined:', key);
+      console.log('👥 User joined:', key, 'My userId:', this.userId, 'Are they different?', key !== this.userId);
       if (key !== this.userId) {
         this.notifyUserJoined(key);
+      } else {
+        console.log('⚠️ Ignoring my own join event');
       }
     });
 
     this.channel.on('presence', { event: 'leave' }, ({ key }) => {
       console.log('User left:', key);
-      if (key !== this.userId) {
-        this.knownPeers.delete(key);
-        if (this.onUserLeft) {
-          this.onUserLeft(key);
-        }
+      if (key !== this.userId && this.onUserLeft) {
+        this.onUserLeft(key);
       }
     });
 
     this.channel.on('presence', { event: 'sync' }, () => {
-      console.log('Presence sync received');
+      console.log('🔄 Presence sync received');
       const presenceState = this.channel?.presenceState();
-      if (!presenceState) return;
+      if (!presenceState) {
+        console.log('⚠️ No presence state available');
+        return;
+      }
 
+      console.log('📋 Full presence state:', presenceState);
+      console.log('📋 My userId:', this.userId);
       const otherUsers = Object.keys(presenceState).filter((key) => key !== this.userId);
+      console.log('📋 Other users found:', otherUsers);
       otherUsers.forEach((userId) => {
         this.notifyUserJoined(userId);
       });
@@ -103,12 +107,6 @@ export class SignalingService {
   }
 
   private notifyUserJoined(userId: string) {
-    if (this.knownPeers.has(userId)) {
-      console.log('⚠️ User already known:', userId);
-      return;
-    }
-    this.knownPeers.add(userId);
-
     console.log('👤 Detected user in room:', userId, 'Callback registered:', !!this.onUserJoined);
     if (this.onUserJoined) {
       console.log('🚀 Calling onUserJoined callback for:', userId);
@@ -219,7 +217,6 @@ export class SignalingService {
       await this.channel.untrack();
       await this.channel.unsubscribe();
       this.channel = null;
-      this.knownPeers.clear();
     }
   }
 
