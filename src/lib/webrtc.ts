@@ -29,14 +29,18 @@ function buildTurnServers(): RTCIceServer[] {
         .filter(Boolean)
     : [];
 
-  if (envUrls.length === 0) {
-    return FALLBACK_TURN_SERVERS;
+  // If developer hasn't provided TURN credentials, skip TURN servers entirely
+  if (envUrls.length === 0 || !username || !credential) {
+    console.warn(
+      '⚠️ No TURN credentials found (VITE_TURN_USERNAME / VITE_TURN_CREDENTIAL). Using STUN only.'
+    );
+    return [];
   }
 
   return envUrls.map((url) => ({
     urls: url,
-    ...(username ? { username } : {}),
-    ...(credential ? { credential } : {}),
+    username,
+    credential,
   }));
 }
 
