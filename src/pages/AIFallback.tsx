@@ -52,50 +52,50 @@ const AIFallback = () => {
         throw new Error('OpenRouter API key not configured. Please add VITE_OPENROUTER_API_KEY to your .env file.');
       }
 
-      // Capture frame from video
-      if (videoRef.current && canvasRef.current) {
-        const canvas = canvasRef.current;
-        const video = videoRef.current;
-        
-        // Set canvas size to match video
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        
-        // Draw current video frame to canvas
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          throw new Error('Failed to get canvas context');
-        }
-        ctx.drawImage(video, 0, 0);
-        
-        // Convert canvas to base64
-        const imageBase64 = canvasToBase64(canvas, 0.8);
-        
-        // Analyze image using OpenRouter API
-        const response = await analyzeImage({
-          imageBase64,
-          prompt: "You are helping a blind person understand their surroundings. " +
-                  "Describe this image clearly and concisely. Focus on objects, their locations, " +
-                  "any text visible, colors, and potential hazards. Be specific about spatial relationships " +
-                  "(left, right, center, near, far). Keep it under 3 sentences but informative."
-        });
-        
-        setResult(response.description);
-        setIsAnalyzing(false);
-        
-        // Read result aloud
-        const speech = new SpeechSynthesisUtterance(response.description);
-        speech.rate = 0.9; // Slightly slower for clarity
-        window.speechSynthesis.speak(speech);
-        
-        toast({
-          title: "Analysis complete",
-          description: "The description has been read aloud",
-        });
+      // Check if video and canvas refs are available
+      if (!videoRef.current || !canvasRef.current) {
+        throw new Error('Camera not ready. Please wait a moment and try again.');
       }
+
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      
+      // Set canvas size to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw current video frame to canvas
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        throw new Error('Failed to get canvas context');
+      }
+      ctx.drawImage(video, 0, 0);
+      
+      // Convert canvas to base64
+      const imageBase64 = canvasToBase64(canvas, 0.8);
+      
+      // Analyze image using OpenRouter API
+      const response = await analyzeImage({
+        imageBase64,
+        prompt: "You are helping a blind person understand their surroundings. " +
+                "Describe this image clearly and concisely. Focus on objects, their locations, " +
+                "any text visible, colors, and potential hazards. Be specific about spatial relationships " +
+                "(left, right, center, near, far). Keep it under 3 sentences but informative."
+      });
+      
+      setResult(response.description);
+      
+      // Read result aloud
+      const speech = new SpeechSynthesisUtterance(response.description);
+      speech.rate = 0.9; // Slightly slower for clarity
+      window.speechSynthesis.speak(speech);
+      
+      toast({
+        title: "Analysis complete",
+        description: "The description has been read aloud",
+      });
     } catch (error) {
       console.error('Error analyzing image:', error);
-      setIsAnalyzing(false);
       
       const errorMessage = error instanceof Error ? error.message : 'Failed to analyze image';
       
@@ -108,6 +108,9 @@ const AIFallback = () => {
       // Read error aloud
       const speech = new SpeechSynthesisUtterance("Sorry, I couldn't analyze the image. " + errorMessage);
       window.speechSynthesis.speak(speech);
+    } finally {
+      // Always reset analyzing state, no matter what happens
+      setIsAnalyzing(false);
     }
   };
 
