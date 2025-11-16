@@ -41,7 +41,7 @@ export async function analyzeImage(request: VisionAnalysisRequest): Promise<Visi
         'X-Title': 'EyeConnect',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o', // GPT-4o with vision capabilities (newer, faster, cheaper)
+        model: 'openai/gpt-4o-mini', // GPT-4o-mini: supports vision, much cheaper, reliable
         messages: [
           {
             role: 'user',
@@ -66,14 +66,19 @@ export async function analyzeImage(request: VisionAnalysisRequest): Promise<Visi
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
-      console.error('OpenRouter API error:', errorData);
+      console.error('OpenRouter API error:', response.status, errorData);
+      
+      // Extract detailed error message from OpenRouter response
+      const errorMessage = errorData?.error?.message || errorData?.message || response.statusText;
       
       if (response.status === 401) {
         throw new Error('Invalid OpenRouter API key. Please check your configuration.');
+      } else if (response.status === 404) {
+        throw new Error(`Model not found. The model may not be available or doesn't support vision. Error: ${errorMessage}`);
       } else if (response.status === 429) {
         throw new Error('Rate limit exceeded. Please try again in a moment.');
       } else {
-        throw new Error(`OpenRouter API error: ${response.status} ${response.statusText}`);
+        throw new Error(`OpenRouter API error (${response.status}): ${errorMessage}`);
       }
     }
 
