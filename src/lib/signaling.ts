@@ -81,6 +81,21 @@ export class SignalingService {
         });
         
         console.log('Successfully joined room');
+        
+        // Check if there are other users already in the room
+        const presenceState = this.channel?.presenceState();
+        if (presenceState) {
+          const otherUsers = Object.keys(presenceState).filter(key => key !== this.userId);
+          console.log('Other users already in room:', otherUsers);
+          
+          // Notify about existing users
+          otherUsers.forEach(userId => {
+            if (this.onUserJoined) {
+              console.log('Detected existing user:', userId);
+              this.onUserJoined(userId);
+            }
+          });
+        }
       }
     });
   }

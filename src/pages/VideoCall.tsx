@@ -19,6 +19,7 @@ const VideoCall = () => {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const webrtcServiceRef = useRef<WebRTCService | null>(null);
   const signalingServiceRef = useRef<SignalingService | null>(null);
+  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const roomId = searchParams.get("room");
@@ -60,6 +61,12 @@ const VideoCall = () => {
           setIsConnecting(false);
           setConnectionState("connected");
           
+          // Clear connection timeout
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
+          
           const speech = new SpeechSynthesisUtterance("Video call connected");
           window.speechSynthesis.speak(speech);
           
@@ -83,35 +90,56 @@ const VideoCall = () => {
         };
 
         webrtcService.onIceCandidate = (candidate) => {
+          console.log('Sending ICE candidate');
           signalingService.sendIceCandidate(candidate);
         };
 
         // Set up signaling event handlers
         signalingService.onOffer = async (offer) => {
-          console.log("Received offer");
+          console.log("Received offer, creating answer");
+          
+          // Create peer connection if not already created
+          if (!webrtcService.getLocalStream()) {
+            console.error('Local stream not ready');
+            return;
+          }
+          
           webrtcService.createPeerConnection();
           const answer = await webrtcService.createAnswer(offer);
           await signalingService.sendAnswer(answer);
+          console.log('Answer sent');
         };
 
         signalingService.onAnswer = async (answer) => {
-          console.log("Received answer");
+          console.log("Received answer, setting remote description");
           await webrtcService.setRemoteAnswer(answer);
+          console.log('Remote answer set successfully');
         };
 
         signalingService.onIceCandidate = async (candidate) => {
-          console.log("Received ICE candidate");
+          console.log("Received ICE candidate, adding to peer connection");
           await webrtcService.addIceCandidate(candidate);
         };
 
         signalingService.onUserJoined = async (joinedUserId) => {
-          console.log("User joined:", joinedUserId);
+          console.log("User joined:", joinedUserId, "My role:", role);
           
-          // If we're the volunteer (first to join), create offer
+          // Wait a moment to ensure both peers are ready
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // The volunteer (who accepted the call) initiates the offer
           if (role === "volunteer") {
+            console.log("I'm the volunteer, creating peer connection and sending offer");
             webrtcService.createPeerConnection();
+            
+            // Small delay to ensure peer connection is fully set up
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             const offer = await webrtcService.createOffer();
+            console.log('Offer created, sending to helper');
             await signalingService.sendOffer(offer);
+          } else {
+            console.log("I'm the helper, waiting for offer from volunteer");
           }
         };
 
@@ -131,6 +159,19 @@ const VideoCall = () => {
           description: "Connecting to the other user...",
         });
 
+        // Set a timeout for connection (30 seconds)
+        connectionTimeoutRef.current = setTimeout(() => {
+          if (isConnecting) {
+            console.warn('Connection timeout - taking too long to connect');
+            toast({
+              title: "Connection taking too long",
+              description: "Please check your internet connection and try again",
+              variant: "destructive",
+            });
+            // Don't navigate away, let user try to reconnect manually
+          }
+        }, 30000);
+
       } catch (error) {
         console.error("Error initializing call:", error);
         toast({
@@ -146,10 +187,13 @@ const VideoCall = () => {
 
     return () => {
       // Cleanup
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+      }
       webrtcServiceRef.current?.close();
       signalingServiceRef.current?.leaveRoom();
     };
-  }, [searchParams, toast, navigate]);
+  }, [searchParams, toast, navigate, isConnecting]);
 
   const handleEndCall = async () => {
     const speech = new SpeechSynthesisUtterance("Call ended");

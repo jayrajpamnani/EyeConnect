@@ -19,6 +19,7 @@ export class WebRTCService {
   private localStream: MediaStream | null = null;
   private remoteStream: MediaStream | null = null;
   private config: WebRTCConfig;
+  private pendingIceCandidates: RTCIceCandidateInit[] = [];
   
   // Callbacks
   public onRemoteStream?: (stream: MediaStream) => void;
@@ -125,8 +126,14 @@ export class WebRTCService {
     }
 
     await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    console.log('Remote description (offer) set successfully');
+    
+    // Process any pending ICE candidates now that we have remote description
+    await this.processPendingIceCandidates();
+    
     const answer = await this.peerConnection.createAnswer();
     await this.peerConnection.setLocalDescription(answer);
+    console.log('Answer created and local description set');
     return answer;
   }
 
@@ -139,6 +146,10 @@ export class WebRTCService {
     }
 
     await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    console.log('Remote description (answer) set successfully');
+    
+    // Process any pending ICE candidates now that we have remote description
+    await this.processPendingIceCandidates();
   }
 
   /**
@@ -146,14 +157,43 @@ export class WebRTCService {
    */
   async addIceCandidate(candidate: RTCIceCandidateInit): Promise<void> {
     if (!this.peerConnection) {
-      throw new Error('Peer connection not initialized');
+      console.log('Peer connection not ready, buffering ICE candidate');
+      this.pendingIceCandidates.push(candidate);
+      return;
+    }
+
+    // If we don't have a remote description yet, buffer the candidate
+    if (!this.peerConnection.remoteDescription) {
+      console.log('Remote description not set, buffering ICE candidate');
+      this.pendingIceCandidates.push(candidate);
+      return;
     }
 
     try {
       await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      console.log('ICE candidate added successfully');
     } catch (error) {
       console.error('Error adding ICE candidate:', error);
     }
+  }
+
+  /**
+   * Process any pending ICE candidates after remote description is set
+   */
+  private async processPendingIceCandidates(): Promise<void> {
+    if (this.pendingIceCandidates.length === 0) return;
+
+    console.log(`Processing ${this.pendingIceCandidates.length} pending ICE candidates`);
+    
+    for (const candidate of this.pendingIceCandidates) {
+      try {
+        await this.peerConnection?.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (error) {
+        console.error('Error adding pending ICE candidate:', error);
+      }
+    }
+    
+    this.pendingIceCandidates = [];
   }
 
   /**
