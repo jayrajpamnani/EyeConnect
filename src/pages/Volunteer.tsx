@@ -20,12 +20,15 @@ const Volunteer = () => {
     if (isListening) {
       // Check for existing waiting calls
       const checkForCalls = async () => {
-        const { data: waitingCalls } = await supabase
+        console.log('🔍 Checking for waiting calls...');
+        const { data: waitingCalls, error } = await supabase
           .from('calls')
           .select('*')
           .eq('status', 'waiting')
           .order('created_at', { ascending: true })
           .limit(1);
+        
+        console.log('📊 Query result:', { data: waitingCalls, error });
         
         if (waitingCalls && waitingCalls.length > 0) {
           const call = waitingCalls[0];
@@ -40,6 +43,7 @@ const Volunteer = () => {
       checkForCalls();
       
       // Subscribe to new call requests
+      console.log('📡 Setting up Realtime subscription...');
       channel = supabase
         .channel('waiting-calls')
         .on(
@@ -51,6 +55,7 @@ const Volunteer = () => {
             filter: 'status=eq.waiting',
           },
           (payload) => {
+            console.log('🔔 New call detected via Realtime:', payload);
             const newCall = payload.new as any;
             setPendingCallId(newCall.id);
             setPendingRoomId(newCall.room_id);
@@ -59,7 +64,9 @@ const Volunteer = () => {
             window.speechSynthesis.speak(speech);
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log('📡 Realtime subscription status:', status);
+        });
     }
     
     return () => {
