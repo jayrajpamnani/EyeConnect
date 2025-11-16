@@ -44,7 +44,7 @@ Without the database setup, calls will show "connecting" infinitely and won't ma
 
 ### AI Visual Assistance Setup (Optional)
 
-When no volunteers are available within 10 seconds, users are redirected to AI-powered visual assistance using OpenRouter.
+When no volunteers are available within 30 seconds, users are redirected to AI-powered visual assistance using OpenRouter.
 
 1. **OpenRouter Setup** (Optional) - See **[OPENROUTER_SETUP.md](./OPENROUTER_SETUP.md)** to enable AI vision
 2. Get API key from [OpenRouter.ai](https://openrouter.ai)

@@ -44,7 +44,7 @@ OpenRouter provides access to GPT-4 Vision and other AI models for visual assist
 
 1. Open your app
 2. Click "I Need Help"
-3. Wait 10 seconds (simulates no volunteer available)
+3. Wait 30 seconds (simulates no volunteer available)
 4. You'll be redirected to **AI Visual Assistance**
 5. Point camera at something
 6. Tap **"Capture & Analyze"**
@@ -55,7 +55,7 @@ OpenRouter provides access to GPT-4 Vision and other AI models for visual assist
 ### User Flow
 
 1. **Helper requests assistance** → "I Need Help" → "Start Request"
-2. **10-second timeout** → No volunteers available
+2. **30-second timeout** → No volunteers available
 3. **Automatic redirect** → AI Visual Assistance page
 4. **Camera activates** → Shows live preview
 5. **User taps Capture** → Takes snapshot
