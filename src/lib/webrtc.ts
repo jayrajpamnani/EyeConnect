@@ -5,13 +5,46 @@ export interface WebRTCConfig {
   iceServers: RTCIceServer[];
 }
 
-// Free STUN servers for NAT traversal
+const STUN_SERVERS: RTCIceServer[] = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+];
+
+const FALLBACK_TURN_SERVERS: RTCIceServer[] = [
+  { urls: 'turn:openrelay.metered.ca:80?transport=udp' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=udp' },
+];
+
+function buildTurnServers(): RTCIceServer[] {
+  const urlsEnv = import.meta.env.VITE_TURN_URLS;
+  const username = import.meta.env.VITE_TURN_USERNAME;
+  const credential = import.meta.env.VITE_TURN_CREDENTIAL;
+
+  const envUrls = urlsEnv
+    ? urlsEnv
+        .split(',')
+        .map((url) => url.trim())
+        .filter(Boolean)
+    : [];
+
+  if (envUrls.length === 0) {
+    return FALLBACK_TURN_SERVERS;
+  }
+
+  return envUrls.map((url) => ({
+    urls: url,
+    ...(username ? { username } : {}),
+    ...(credential ? { credential } : {}),
+  }));
+}
+
+const ICE_SERVERS: RTCIceServer[] = [...STUN_SERVERS, ...buildTurnServers()];
+
+// Free STUN/TURN configuration
 const DEFAULT_CONFIG: WebRTCConfig = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'stun:stun2.l.google.com:19302' },
-  ],
+  iceServers: ICE_SERVERS,
 };
 
 export class WebRTCService {
