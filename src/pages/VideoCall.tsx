@@ -20,6 +20,7 @@ const VideoCall = () => {
   const webrtcServiceRef = useRef<WebRTCService | null>(null);
   const signalingServiceRef = useRef<SignalingService | null>(null);
   const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasInitiatedOfferRef = useRef(false);
 
   useEffect(() => {
     const roomId = searchParams.get("room");
@@ -143,8 +144,9 @@ const VideoCall = () => {
           await new Promise(resolve => setTimeout(resolve, 500));
           
           // The volunteer (who accepted the call) initiates the offer
-          if (role === "volunteer") {
+          if (role === "volunteer" && !hasInitiatedOfferRef.current) {
             try {
+              hasInitiatedOfferRef.current = true;
               console.log("✅ I'm the volunteer, creating peer connection and sending offer");
               console.log("🔍 WebRTC service exists:", !!webrtcService);
               console.log("🔍 Local stream exists:", !!webrtcService.getLocalStream());
