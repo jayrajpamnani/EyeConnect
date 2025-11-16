@@ -22,6 +22,7 @@ export class SignalingService {
   private roomId: string;
   private userId: string;
   private userRole: 'helper' | 'volunteer';
+  private knownPeers: Set<string> = new Set();
   
   // Callbacks
   public onOffer?: (offer: RTCSessionDescriptionInit, from: string) => void;
@@ -58,16 +59,30 @@ export class SignalingService {
     // Track presence (who's in the room)
     this.channel.on('presence', { event: 'join' }, ({ key }) => {
       console.log('User joined:', key);
-      if (this.onUserJoined && key !== this.userId) {
-        this.onUserJoined(key);
+      if (key !== this.userId) {
+        this.notifyUserJoined(key);
       }
     });
 
     this.channel.on('presence', { event: 'leave' }, ({ key }) => {
       console.log('User left:', key);
-      if (this.onUserLeft && key !== this.userId) {
-        this.onUserLeft(key);
+      if (key !== this.userId) {
+        this.knownPeers.delete(key);
+        if (this.onUserLeft) {
+          this.onUserLeft(key);
+        }
       }
+    });
+
+    this.channel.on('presence', { event: 'sync' }, () => {
+      console.log('Presence sync received');
+      const presenceState = this.channel?.presenceState();
+      if (!presenceState) return;
+
+      const otherUsers = Object.keys(presenceState).filter((key) => key !== this.userId);
+      otherUsers.forEach((userId) => {
+        this.notifyUserJoined(userId);
+      });
     });
 
     // Subscribe to the channel
@@ -82,22 +97,19 @@ export class SignalingService {
         
         console.log('Successfully joined room');
         
-        // Check if there are other users already in the room
-        const presenceState = this.channel?.presenceState();
-        if (presenceState) {
-          const otherUsers = Object.keys(presenceState).filter(key => key !== this.userId);
-          console.log('Other users already in room:', otherUsers);
-          
-          // Notify about existing users
-          otherUsers.forEach(userId => {
-            if (this.onUserJoined) {
-              console.log('Detected existing user:', userId);
-              this.onUserJoined(userId);
-            }
-          });
-        }
+        // Initial presence sync will trigger the handler above
       }
     });
+  }
+
+  private notifyUserJoined(userId: string) {
+    if (this.knownPeers.has(userId)) return;
+    this.knownPeers.add(userId);
+
+    if (this.onUserJoined) {
+      console.log('Detected user in room:', userId);
+      this.onUserJoined(userId);
+    }
   }
 
   /**
@@ -201,6 +213,7 @@ export class SignalingService {
       await this.channel.untrack();
       await this.channel.unsubscribe();
       this.channel = null;
+      this.knownPeers.clear();
     }
   }
 
