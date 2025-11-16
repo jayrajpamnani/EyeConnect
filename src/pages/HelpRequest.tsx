@@ -11,7 +11,7 @@ const HelpRequest = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isSearching, setIsSearching] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(10);
+  const [timeLeft, setTimeLeft] = useState(30);
 
   useEffect(() => {
     if (isSearching && timeLeft > 0) {
@@ -29,7 +29,7 @@ const HelpRequest = () => {
 
   const handleStartRequest = async () => {
     setIsSearching(true);
-    setTimeLeft(10);
+    setTimeLeft(30);
 
     // Generate identifiers
     const roomId = generateRoomId();
@@ -119,7 +119,7 @@ const HelpRequest = () => {
 
   const handleCancel = async () => {
     setIsSearching(false);
-    setTimeLeft(10);
+    setTimeLeft(30);
     
     // Cleanup subscription
     const channel = (window as any).__callChannel;
