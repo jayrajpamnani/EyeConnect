@@ -36,27 +36,9 @@ const HelpRequest = () => {
     const helperId = `helper_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
     try {
-      // Insert the call request into database
-      const { error } = await (supabase as any)
-        .from('calls')
-        .insert({
-          room_id: roomId,
-          status: 'waiting',
-          helper_id: helperId,
-        });
-
-      if (error) {
-        console.error('Error creating call:', error);
-        toast({
-          title: 'Connection error',
-          description: 'Failed to create call request. Please check your Supabase configuration.',
-          variant: 'destructive',
-        });
-        setIsSearching(false);
-        return;
-      }
-
-      // Listen for when a volunteer accepts
+      console.log('🔵 Starting help request flow...');
+      
+      // STEP 1: Create channel and set up listener FIRST (before inserting)
       const channel = supabase
         .channel(`call-updates-${roomId}`)
         .on(
@@ -68,8 +50,10 @@ const HelpRequest = () => {
             filter: `room_id=eq.${roomId}`,
           },
           (payload) => {
+            console.log('🔔 Received call update:', payload);
             const updatedCall = payload.new as any;
             if (updatedCall.status === 'accepted') {
+              console.log('✅ Call accepted! Navigating to video call...');
               channel.unsubscribe();
               toast({
                 title: 'Volunteer found!',
@@ -78,8 +62,42 @@ const HelpRequest = () => {
               navigate(`/video-call?room=${updatedCall.room_id}&role=helper`);
             }
           }
-        )
-        .subscribe();
+        );
+
+      // STEP 2: Wait for subscription to be fully established
+      console.log('⏳ Waiting for subscription to be ready...');
+      await new Promise<void>((resolve) => {
+        channel.subscribe((status) => {
+          console.log('📡 Subscription status:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('✅ Subscription ready! Now inserting call request...');
+            resolve();
+          }
+        });
+      });
+
+      // STEP 3: NOW insert the row (we're guaranteed to receive updates)
+      const { error } = await (supabase as any)
+        .from('calls')
+        .insert({
+          room_id: roomId,
+          status: 'waiting',
+          helper_id: helperId,
+        });
+
+      if (error) {
+        console.error('❌ Error creating call:', error);
+        toast({
+          title: 'Connection error',
+          description: 'Failed to create call request. Please check your Supabase configuration.',
+          variant: 'destructive',
+        });
+        setIsSearching(false);
+        channel.unsubscribe();
+        return;
+      }
+
+      console.log('✅ Call request created in database');
 
       toast({
         title: 'Searching for volunteers',
