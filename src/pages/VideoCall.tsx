@@ -146,18 +146,26 @@ const VideoCall = () => {
           if (role === "volunteer") {
             try {
               console.log("✅ I'm the volunteer, creating peer connection and sending offer");
-              webrtcService.createPeerConnection();
-              console.log("✅ Peer connection created");
+              console.log("🔍 WebRTC service exists:", !!webrtcService);
+              console.log("🔍 Local stream exists:", !!webrtcService.getLocalStream());
+              
+              const pc = webrtcService.createPeerConnection();
+              console.log("✅ Peer connection created:", pc);
+              console.log("✅ Peer connection state:", pc.connectionState);
               
               // Small delay to ensure peer connection is fully set up
               await new Promise(resolve => setTimeout(resolve, 100));
               
+              console.log("🔍 About to create offer...");
               const offer = await webrtcService.createOffer();
               console.log('✅ Offer created:', offer);
+              
+              console.log("🔍 About to send offer...");
               await signalingService.sendOffer(offer);
               console.log('✅ Offer sent successfully');
             } catch (error) {
               console.error("❌ Error creating/sending offer:", error);
+              console.error("❌ Error stack:", error instanceof Error ? error.stack : 'No stack');
             }
           } else {
             console.log("⏳ I'm the helper, waiting for offer from volunteer");

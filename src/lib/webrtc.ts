@@ -91,14 +91,19 @@ export class WebRTCService {
    * Create a new peer connection
    */
   createPeerConnection(): RTCPeerConnection {
+    console.log('🔧 Creating RTCPeerConnection with config:', this.config);
+    console.log('🔧 Local stream available:', !!this.localStream);
+    console.log('🔧 Local stream tracks:', this.localStream?.getTracks().length);
+    
     this.peerConnection = new RTCPeerConnection(this.config);
+    console.log('🔧 RTCPeerConnection instance created');
 
     // Create empty remote stream
     this.remoteStream = new MediaStream();
 
     // Handle incoming tracks from remote peer
     this.peerConnection.ontrack = (event) => {
-      console.log('Received remote track:', event.track.kind);
+      console.log('📹 Received remote track:', event.track.kind);
       event.streams[0].getTracks().forEach((track) => {
         this.remoteStream?.addTrack(track);
       });
@@ -111,7 +116,7 @@ export class WebRTCService {
     // Handle ICE candidates
     this.peerConnection.onicecandidate = (event) => {
       if (event.candidate && this.onIceCandidate) {
-        console.log('New ICE candidate:', event.candidate);
+        console.log('🧊 New ICE candidate:', event.candidate.type);
         this.onIceCandidate(event.candidate);
       }
     };
@@ -119,7 +124,7 @@ export class WebRTCService {
     // Monitor connection state
     this.peerConnection.onconnectionstatechange = () => {
       const state = this.peerConnection?.connectionState;
-      console.log('Connection state changed:', state);
+      console.log('🔄 Connection state changed:', state);
       if (this.onConnectionStateChange && state) {
         this.onConnectionStateChange(state);
       }
@@ -127,13 +132,19 @@ export class WebRTCService {
 
     // Add local stream tracks to peer connection
     if (this.localStream) {
+      console.log('🎥 Adding local tracks to peer connection...');
       this.localStream.getTracks().forEach((track) => {
         if (this.peerConnection && this.localStream) {
+          console.log('➕ Adding track:', track.kind, track.label);
           this.peerConnection.addTrack(track, this.localStream);
         }
       });
+      console.log('✅ All local tracks added');
+    } else {
+      console.warn('⚠️ No local stream available when creating peer connection!');
     }
 
+    console.log('🔧 Peer connection setup complete, returning instance');
     return this.peerConnection;
   }
 
@@ -141,12 +152,21 @@ export class WebRTCService {
    * Create an offer (caller side)
    */
   async createOffer(): Promise<RTCSessionDescriptionInit> {
+    console.log('📝 createOffer called');
+    console.log('📝 Peer connection exists:', !!this.peerConnection);
+    
     if (!this.peerConnection) {
       throw new Error('Peer connection not initialized');
     }
 
+    console.log('📝 Calling peerConnection.createOffer()...');
     const offer = await this.peerConnection.createOffer();
+    console.log('📝 Offer created:', offer.type);
+    
+    console.log('📝 Setting local description...');
     await this.peerConnection.setLocalDescription(offer);
+    console.log('📝 Local description set successfully');
+    
     return offer;
   }
 
