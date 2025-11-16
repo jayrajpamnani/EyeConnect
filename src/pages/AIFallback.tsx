@@ -109,7 +109,8 @@ const AIFallback = () => {
       const speech = new SpeechSynthesisUtterance("Sorry, I couldn't analyze the image. " + errorMessage);
       window.speechSynthesis.speak(speech);
     } finally {
-      // Always reset analyzing state, no matter what happens
+      // CRITICAL: Always reset analyzing state to prevent permanently disabled button
+      // This runs whether the analysis succeeds, fails, or refs are unavailable
       setIsAnalyzing(false);
     }
   };
