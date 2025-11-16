@@ -30,77 +30,88 @@ const HelpRequest = () => {
   const handleStartRequest = async () => {
     setIsSearching(true);
     setTimeLeft(10);
-    
-    try {
-      // Generate a unique room ID for this call
-      const roomId = generateRoomId();
-      const helperId = `helper_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-      
-      // Create a call request in Supabase
-      const { data: callData, error } = await supabase
-        .from('calls')
-        .insert({
-          room_id: roomId,
-          status: 'waiting',
-          helper_id: helperId,
-        })
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('Error creating call:', error);
-        toast({
-          title: "Connection error",
-          description: "Failed to create call request. Please check your Supabase configuration.",
-          variant: "destructive",
-        });
-        setIsSearching(false);
-        return;
-      }
-      
-      toast({
-        title: "Searching for volunteers",
-        description: "Please wait while we connect you...",
-      });
 
-      // Subscribe to changes in the call status
+    // Generate identifiers
+    const roomId = generateRoomId();
+    const helperId = `helper_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+    try {
+      /* ---------------------------------------------------------
+       * 1. Subscribe BEFORE we create the row to avoid race-condition
+       * --------------------------------------------------------- */
       const channel = supabase
-        .channel(`call:${callData.id}`)
+        .channel(`call:${roomId}`)
         .on(
           'postgres_changes',
           {
             event: 'UPDATE',
             schema: 'public',
             table: 'calls',
-            filter: `id=eq.${callData.id}`,
+            filter: `room_id=eq.${roomId}`,
           },
           (payload) => {
             const updatedCall = payload.new as any;
-            
             if (updatedCall.status === 'accepted') {
+              // Cleanup listener
               channel.unsubscribe();
-              
+
               toast({
-                title: "Volunteer found!",
-                description: "Connecting to video call...",
+                title: 'Volunteer found!',
+                description: 'Connecting to video call...',
               });
-              
-              // Navigate to video call with room ID
+
               navigate(`/video-call?room=${updatedCall.room_id}&role=helper`);
             }
           }
-        )
-        .subscribe();
+        );
 
-      // Store channel for cleanup
+      // Wait for subscription to be ready
+      await new Promise<void>((resolve) => {
+        channel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') resolve();
+        });
+      });
+
+      /* ---------------------------------------------------------
+       * 2. Insert row AFTER listener is active
+       * --------------------------------------------------------- */
+      // Using any cast to bypass missing generated types
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      const { error } = await (supabase as any)
+        .from('calls')
+        .insert({
+          room_id: roomId,
+          status: 'waiting',
+          helper_id: helperId,
+        });
+
+      if (error) {
+        console.error('Error creating call:', error);
+        toast({
+          title: 'Connection error',
+          description:
+            'Failed to create call request. Please check your Supabase configuration.',
+          variant: 'destructive',
+        });
+        setIsSearching(false);
+        channel.unsubscribe();
+        return;
+      }
+
+      toast({
+        title: 'Searching for volunteers',
+        description: 'Please wait while we connect you...',
+      });
+
+      // Store channel globally for cleanup
       (window as any).__callChannel = channel;
-      
     } catch (error) {
       console.error('Error starting request:', error);
       toast({
-        title: "Error",
-        description: "Failed to start help request",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to start help request',
+        variant: 'destructive',
       });
       setIsSearching(false);
     }

@@ -149,4 +149,3 @@ function extractDescription(data: any): string {
 
   return "";
 }
-
