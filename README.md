@@ -35,7 +35,12 @@ npm run dev
 
 ### Video Call Setup
 
-The video calling feature requires Supabase for signaling. See **[SETUP_VIDEO_CALLS.md](./SETUP_VIDEO_CALLS.md)** for complete setup instructions.
+⚠️ **IMPORTANT**: The video calling feature requires Supabase database setup to work across different devices.
+
+1. **Database Setup** (Required) - See **[DATABASE_SETUP.md](./DATABASE_SETUP.md)** to create the calls table
+2. **Video Call Configuration** - See **[SETUP_VIDEO_CALLS.md](./SETUP_VIDEO_CALLS.md)** for complete instructions
+
+Without the database setup, calls will show "connecting" infinitely and won't match across devices.
 
 ## Technologies Used
 

@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateRoomId } from "@/lib/signaling";
+import { supabase } from "@/integrations/supabase/client";
 
 const HelpRequest = () => {
   const navigate = useNavigate();
@@ -26,46 +27,96 @@ const HelpRequest = () => {
     }
   }, [isSearching, timeLeft, navigate, toast]);
 
-  const handleStartRequest = () => {
+  const handleStartRequest = async () => {
     setIsSearching(true);
     setTimeLeft(10);
     
-    // Generate a unique room ID for this call
-    const roomId = generateRoomId();
-    
-    // Store room ID in sessionStorage so volunteer page can find it
-    sessionStorage.setItem("pendingCall", JSON.stringify({
-      roomId,
-      timestamp: Date.now(),
-      status: "waiting"
-    }));
-    
-    toast({
-      title: "Searching for volunteers",
-      description: "Please wait while we connect you...",
-    });
-
-    // Simulate finding a volunteer after 3 seconds
-    setTimeout(() => {
-      const pendingCall = sessionStorage.getItem("pendingCall");
-      if (pendingCall) {
-        const callData = JSON.parse(pendingCall);
-        
+    try {
+      // Generate a unique room ID for this call
+      const roomId = generateRoomId();
+      const helperId = `helper_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      
+      // Create a call request in Supabase
+      const { data: callData, error } = await supabase
+        .from('calls')
+        .insert({
+          room_id: roomId,
+          status: 'waiting',
+          helper_id: helperId,
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error creating call:', error);
         toast({
-          title: "Volunteer found!",
-          description: "Connecting to video call...",
+          title: "Connection error",
+          description: "Failed to create call request. Please check your Supabase configuration.",
+          variant: "destructive",
         });
-        
-        // Navigate to video call with room ID
-        navigate(`/video-call?room=${callData.roomId}&role=helper`);
+        setIsSearching(false);
+        return;
       }
-    }, 3000);
+      
+      toast({
+        title: "Searching for volunteers",
+        description: "Please wait while we connect you...",
+      });
+
+      // Subscribe to changes in the call status
+      const channel = supabase
+        .channel(`call:${callData.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'calls',
+            filter: `id=eq.${callData.id}`,
+          },
+          (payload) => {
+            const updatedCall = payload.new as any;
+            
+            if (updatedCall.status === 'accepted') {
+              channel.unsubscribe();
+              
+              toast({
+                title: "Volunteer found!",
+                description: "Connecting to video call...",
+              });
+              
+              // Navigate to video call with room ID
+              navigate(`/video-call?room=${updatedCall.room_id}&role=helper`);
+            }
+          }
+        )
+        .subscribe();
+
+      // Store channel for cleanup
+      (window as any).__callChannel = channel;
+      
+    } catch (error) {
+      console.error('Error starting request:', error);
+      toast({
+        title: "Error",
+        description: "Failed to start help request",
+        variant: "destructive",
+      });
+      setIsSearching(false);
+    }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     setIsSearching(false);
     setTimeLeft(10);
-    sessionStorage.removeItem("pendingCall");
+    
+    // Cleanup subscription
+    const channel = (window as any).__callChannel;
+    if (channel) {
+      await channel.unsubscribe();
+      delete (window as any).__callChannel;
+    }
+    
     navigate("/");
   };
 

@@ -4,34 +4,67 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Phone } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const Volunteer = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isListening, setIsListening] = useState(false);
   const [incomingRequest, setIncomingRequest] = useState(false);
+  const [pendingCallId, setPendingCallId] = useState<string | null>(null);
+  const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
 
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
+    let channel: any = null;
     
     if (isListening) {
-      // Check for pending calls every second
-      intervalId = setInterval(() => {
-        const pendingCall = sessionStorage.getItem("pendingCall");
-        if (pendingCall) {
-          const callData = JSON.parse(pendingCall);
-          if (callData.status === "waiting") {
+      // Check for existing waiting calls
+      const checkForCalls = async () => {
+        const { data: waitingCalls } = await supabase
+          .from('calls')
+          .select('*')
+          .eq('status', 'waiting')
+          .order('created_at', { ascending: true })
+          .limit(1);
+        
+        if (waitingCalls && waitingCalls.length > 0) {
+          const call = waitingCalls[0];
+          setPendingCallId(call.id);
+          setPendingRoomId(call.room_id);
+          setIncomingRequest(true);
+          const speech = new SpeechSynthesisUtterance("Incoming help request");
+          window.speechSynthesis.speak(speech);
+        }
+      };
+      
+      checkForCalls();
+      
+      // Subscribe to new call requests
+      channel = supabase
+        .channel('waiting-calls')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'calls',
+            filter: 'status=eq.waiting',
+          },
+          (payload) => {
+            const newCall = payload.new as any;
+            setPendingCallId(newCall.id);
+            setPendingRoomId(newCall.room_id);
             setIncomingRequest(true);
             const speech = new SpeechSynthesisUtterance("Incoming help request");
             window.speechSynthesis.speak(speech);
           }
-        }
-      }, 1000);
+        )
+        .subscribe();
     }
     
     return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (channel) {
+        channel.unsubscribe();
       }
     };
   }, [isListening]);
@@ -44,16 +77,31 @@ const Volunteer = () => {
     });
   };
 
-  const handleAccept = () => {
-    const pendingCall = sessionStorage.getItem("pendingCall");
-    if (pendingCall) {
-      const callData = JSON.parse(pendingCall);
+  const handleAccept = async () => {
+    if (!pendingCallId || !pendingRoomId) return;
+    
+    try {
+      const volunteerId = `volunteer_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
       
-      // Update call status
-      sessionStorage.setItem("pendingCall", JSON.stringify({
-        ...callData,
-        status: "accepted"
-      }));
+      // Update call status to accepted
+      const { error } = await supabase
+        .from('calls')
+        .update({
+          status: 'accepted',
+          volunteer_id: volunteerId,
+          accepted_at: new Date().toISOString(),
+        })
+        .eq('id', pendingCallId);
+      
+      if (error) {
+        console.error('Error accepting call:', error);
+        toast({
+          title: "Error",
+          description: "Failed to accept call request",
+          variant: "destructive",
+        });
+        return;
+      }
       
       toast({
         title: "Request accepted",
@@ -61,7 +109,14 @@ const Volunteer = () => {
       });
       
       // Navigate to video call with room ID
-      navigate(`/video-call?room=${callData.roomId}&role=volunteer`);
+      navigate(`/video-call?room=${pendingRoomId}&role=volunteer`);
+    } catch (error) {
+      console.error('Error accepting call:', error);
+      toast({
+        title: "Error",
+        description: "Failed to accept call request",
+        variant: "destructive",
+      });
     }
   };
 
@@ -117,9 +172,17 @@ const Volunteer = () => {
                   Accept
                 </Button>
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
+                    if (pendingCallId) {
+                      // Mark call as cancelled
+                      await supabase
+                        .from('calls')
+                        .update({ status: 'cancelled' })
+                        .eq('id', pendingCallId);
+                    }
                     setIncomingRequest(false);
-                    sessionStorage.removeItem("pendingCall");
+                    setPendingCallId(null);
+                    setPendingRoomId(null);
                   }}
                   variant="destructive"
                   className="h-24 flex-1 text-2xl"

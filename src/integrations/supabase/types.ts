@@ -14,13 +14,50 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      calls: {
+        Row: {
+          id: string
+          room_id: string
+          status: 'waiting' | 'accepted' | 'completed' | 'cancelled'
+          helper_id: string | null
+          volunteer_id: string | null
+          created_at: string
+          accepted_at: string | null
+          completed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          room_id: string
+          status: 'waiting' | 'accepted' | 'completed' | 'cancelled'
+          helper_id?: string | null
+          volunteer_id?: string | null
+          created_at?: string
+          accepted_at?: string | null
+          completed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          room_id?: string
+          status?: 'waiting' | 'accepted' | 'completed' | 'cancelled'
+          helper_id?: string | null
+          volunteer_id?: string | null
+          created_at?: string
+          accepted_at?: string | null
+          completed_at?: string | null
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_old_calls: {
+        Args: Record<PropertyKey, never>
+        Returns: void
+      }
     }
     Enums: {
       [_ in never]: never
