@@ -218,6 +218,8 @@ export class SignalingService {
       await this.channel.unsubscribe();
       this.channel = null;
     }
+    // Clear known peers for clean state
+    this.knownPeers.clear();
   }
 
   /**
@@ -234,4 +236,3 @@ export class SignalingService {
 export function generateRoomId(): string {
   return `room_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
-
