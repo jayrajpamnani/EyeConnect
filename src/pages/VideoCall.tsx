@@ -161,15 +161,13 @@ const VideoCall = () => {
 
         // Set a timeout for connection (30 seconds)
         connectionTimeoutRef.current = setTimeout(() => {
-          if (isConnecting) {
-            console.warn('Connection timeout - taking too long to connect');
-            toast({
-              title: "Connection taking too long",
-              description: "Please check your internet connection and try again",
-              variant: "destructive",
-            });
-            // Don't navigate away, let user try to reconnect manually
-          }
+          console.warn('Connection timeout - taking too long to connect');
+          toast({
+            title: "Connection taking too long",
+            description: "Please check your internet connection and try again",
+            variant: "destructive",
+          });
+          // The timeout will be cleared if connection succeeds
         }, 30000);
 
       } catch (error) {
@@ -193,7 +191,7 @@ const VideoCall = () => {
       webrtcServiceRef.current?.close();
       signalingServiceRef.current?.leaveRoom();
     };
-  }, [searchParams, toast, navigate, isConnecting]);
+  }, [searchParams, toast, navigate]);
 
   const handleEndCall = async () => {
     const speech = new SpeechSynthesisUtterance("Call ended");
