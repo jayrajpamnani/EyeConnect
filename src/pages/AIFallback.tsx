@@ -6,6 +6,7 @@ import { ArrowLeft, Camera, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { analyzeImage, canvasToBase64, isOpenRouterConfigured } from "@/lib/openrouter";
 
+// OpenRouter AI Vision - Real-time image analysis for blind users
 const AIFallback = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
