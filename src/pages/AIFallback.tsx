@@ -15,6 +15,8 @@ const AIFallback = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState("");
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isConfigured, setIsConfigured] = useState(true);
+  const [configChecked, setConfigChecked] = useState(false);
 
   useEffect(() => {
     // Start camera
@@ -43,14 +45,36 @@ const AIFallback = () => {
     };
   }, [toast]);
 
+  useEffect(() => {
+    let isMounted = true;
+
+    isOpenRouterConfigured()
+      .then((configured) => {
+        if (isMounted) {
+          setIsConfigured(configured);
+          setConfigChecked(true);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setIsConfigured(false);
+          setConfigChecked(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const analyzeFrame = async () => {
     setIsAnalyzing(true);
     setResult(""); // Clear previous result
     
     try {
-      // Check if API is configured
-      if (!isOpenRouterConfigured()) {
-        throw new Error('OpenRouter API key not configured. Please add VITE_OPENROUTER_API_KEY to your .env file.');
+      // Check if API is configured (only if status already fetched)
+      if (configChecked && !isConfigured) {
+        throw new Error('OpenRouter AI is not configured. Please add your API key and redeploy.');
       }
 
       // Check if video and canvas refs are available
@@ -134,10 +158,10 @@ const AIFallback = () => {
           <CardDescription className="text-2xl">
             Point your camera and tap to hear what's in view
           </CardDescription>
-          {!isOpenRouterConfigured() && (
+          {configChecked && !isConfigured && (
             <div className="mt-4 rounded-lg bg-yellow-100 dark:bg-yellow-900/20 p-4 border border-yellow-300 dark:border-yellow-700">
               <p className="text-lg text-yellow-800 dark:text-yellow-200">
-                ⚠️ OpenRouter API not configured. Add VITE_OPENROUTER_API_KEY to your .env file.
+                ⚠️ OpenRouter API not configured. Add the API key to your environment variables and redeploy.
               </p>
             </div>
           )}
