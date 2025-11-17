@@ -4,18 +4,13 @@
 
 EyeConnect is a web application that connects blind users with sighted volunteers through video calls for real-time visual assistance. This project was build under 24 hours for HackNYU25.
 
-Project link: eye-connect.vercel.app
+Project Link with description: https://devpost.com/software/eyeconnect
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-- Supabase account (free) for video call signaling - [Sign up here](https://supabase.com)
+Web App Link: https://eye-connect.vercel.app
 
 ## Technologies Used
 
-This project is built with:
+This project was built using:
 
 - Vite
 - TypeScript
